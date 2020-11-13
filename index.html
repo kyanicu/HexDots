@@ -559,7 +559,21 @@
             else if (fallingDots[i].body.speed == 0) // if falling dot is stopped, set it to fall towards next point
                 game.scene.scenes[0].physics.moveTo(fallingDots[i], fallNext[0], fallNext[1], fallSpeed);
         }
+
+        // Fixes bug that causes falling dot to sometimes stop slightly after intended point
+        // Has to do with image being moved by physics, though setting it back to intended position immediately after it stops doesn't entirely work for some reason
+        if (fallingDots.length == 0)
+        {
+            for (let i = 0; i < gridDimension; i++)
+            {
+                for (let j = 0; j < gridDimension; j++)
+                {
+                    grid[i][j].image.setPosition(grid[i][j].center[0], grid[i][j].center[1]);
+                }
+            }
+        }
     }
+
   
 </script>
 
