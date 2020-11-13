@@ -58,7 +58,7 @@
         color: 0x00FFFF,
     };
 
-    // The usable sots
+    // The usable dots
     var dots;
 
     // The dimension of the grid in hexes (height == width)
@@ -73,11 +73,7 @@
     // Represents the hex grid, holding the dots
     var grid = [];
 
-    // Represents the points of the hex centers for image placing;
-    //var gridCenters = [];
-
-    //var gridDotImages
-
+    // Dot connection info
     var connecting = false;
     var currentConnection = [];
     var lines = [];
@@ -92,28 +88,40 @@
     // Phaser game config
     var config;
 
+    // Timer info
     var time = 60;
     var timedMode = false;
     var timerTextObj = null;
     var timerEvent = null;
 
+    // Score info
     var score = 0;
     var scoreTextObj = null;
 
     // The Phaser game
     var game = null;
 
-    // Game initializations functions
+
     MainMenu();
 
+    ////// Game initializations functions //////
+    
+    // Start main menu prompts
     function MainMenu()
     {
-        alert("Starting New Game");
+        alert("Starting New Game\n"
+                + "- Left click to choose and connect dots\n"
+                + "- Right click to finish connection\n"
+                + "- Left click on already selected dot to backtrack\n"
+                + "- Reselect first dot to cancel selction\n"
+                + "- End at your first dot to create a loop and destroy all dots of that color");
         
+        // game settings
         SetGridDimension();
         SetColorCount();
         SetTimedMode();
 
+        // Setup Game object
         config = {
             type: Phaser.AUTO,
             width: hexSize[0] * gridDimension + hexSize[0]/2,
@@ -129,9 +137,12 @@
             }
         };
 
+        // Create game
         game = new Phaser.Game(config);
     }
 
+    // Sets the grid dimensions (columns == rows)
+    // TODO: Allow for changing row and column sizes separately
     function SetGridDimension()
     {
         gridDimension = prompt("Please enter the grid size (number from 3-15): ");
@@ -139,6 +150,7 @@
             SetGridDimension();
     }
 
+    // Set amount of colors
     function SetColorCount()
     {
         let colorCount = prompt("Please enter the amount of colors (number from 2-8): ");
@@ -146,12 +158,14 @@
             SetColorCount();
         else
         {
+            // Randomly choose from available colors
             dots = [ blackDot, orangeDot, blueDot, pinkDot, yellowDot, greenDot, purpleDot, cyanDot ];
             dots.sort(() => Math.random() - 0.5);
             dots.length = colorCount;
         }
     }
 
+    // Set whether or not to play on timed mode
     function SetTimedMode()
     {
         if (confirm("Timed Mode of 60 seconds? (OK for timed mode, Cancel for endless)"))
@@ -163,24 +177,24 @@
         }
     }
 
+    // Ends the game and prompts a restart
     function TimeOver()
     {
         alert("Time Over! You're score is: " + score + "\n" + "Press OK to restart");
         location.reload();
     }
-    
-    ////// Grid/Hex Initilizialization Functions //////
 
+    // Initializes the hex grid
     function SetupHexGrid(scene)
     {
-        for (let i = 0; i < gridDimension; i++)
+        for (let i = 0; i < gridDimension; i++) // for each column
         { 
             let column = [];
-            let columnPosX = (i * hexSize[0]) + hexSize[0]/2; 
-            //let columnPos = [];
+            let columnPosX = (i * hexSize[0]) + hexSize[0]/2;
 
-            for (let j = 0; j < gridDimension; j++)
+            for (let j = 0; j < gridDimension; j++) // for each row
             {
+                // Setup random dots
                 let newDot = GetRandomDot();
                 let columnPosXOffest = (hexSize[0]/2) * ((j+1) % 2) 
                 let posCenter = [columnPosX + columnPosXOffest, (j * hexSize[1]) + (hexSize[1]/2) - (j * (hexSize[1]/4)) + uiOffsetHeight];
@@ -192,18 +206,13 @@
                     center: posCenter,
                     image: dotImage
                 })
-
-                //columnPos.push([columnPosX + columnPosXOffest, (j * hexSize[1]) + (hexSize[1]/2) - (j * (hexSize[1]/4))]);
-                //column.push(newDot)
-                //scene.add.image(columnPos[j][0], columnPos[j][1], newDot.image);
-                //scene.add.image(columnPos[j][0], columnPos[j][1], 'hex');
                 scene.add.image(column[j].center[0], column[j].center[1], 'hex');
             }
             grid.push(column);
-            //gridCenters.push(columnPos)
         }
     }
     
+    // Shuffles the grid (unused)
     function ShuffleGrid()
     {
         for (let i = 0; i < gridDimension; i++)
@@ -215,6 +224,7 @@
         }
     }
 
+    // Returns a randomly selected dot json
     function GetRandomDot()
     {
         return dots[Math.floor(Math.random() * dots.length)];
@@ -222,10 +232,11 @@
 
     ////// Gameplay Functions //////
 
+    // Does the to dot connect with the from dot?
     function Connects(to)
     {
         let from = currentConnection[currentConnection.length-1];
-        if ((grid[from[0]][from[1]].dot.id == grid[to[0]][to[1]].dot.id)
+        if ((grid[from[0]][from[1]].dot.id == grid[to[0]][to[1]].dot.id) // same color
             && (Math.abs(from[1] - to[1]) == 1 && from[0] - to[0] == 0 + (from[1] % 2) // vertically next to each other
             || Math.abs(from[0] - to[0]) == 1 && from[1] - to[1] == 0 // horizontally next to each other
             || (Math.abs(from[1] - to[1]) == 1 && from[0] - to[0] == -1 + (from[1] % 2)))) // diagonally to the left of eachother each other
@@ -236,6 +247,10 @@
             return false;
     }
 
+    // Check mouse position and return selected grid indeces
+    // TODO: WAY too slow and naive
+    // Surrently cycles through every dot on the grid and checks for collision with pointer
+    // Should instead be set up via listeners that take in the image and the images respecte4d dot indeces on the grid 
     function CheckMousePosition(mousePos)
     {
         for (let i = 0; i < gridDimension; i++)
@@ -251,6 +266,7 @@
         return null;
     }
 
+    // Initializes a connection
     function StartConnection(startDot, scene)
     {
         connecting = true;
@@ -260,6 +276,7 @@
         currMarker = scene.add.circle(center[0], center[1], dotRadius+10, grid[startDot[0]][startDot[1]].dot.color);
     }
 
+    // Adds to the current connection
     function AddConnection(nextDot, scene)
     {
         currentConnection.push(nextDot);
@@ -273,6 +290,7 @@
 
     }
 
+    // Steps back to previous connection setting
     function StepBackConnection(prevDot, scene)
     {
         for(let i = currentConnection.length-1; i >= 0 && !(prevDot[0] == currentConnection[i][0] && prevDot[1] == currentConnection[i][1]); i--)
@@ -286,10 +304,12 @@
         currMarker = scene.add.circle(center[0], center[1], dotRadius+10, grid[prevDot[0]][prevDot[1]].dot.color);
     }
 
+    // Handles creation of a connection loop
     function Loop()
     {
         score += Math.floor(currentConnection.length * (currentConnection.length/2));
 
+        // Destroy all dots of same color
         let cols = [];
         let id = grid[currentConnection[0][0]][currentConnection[0][1]].dot.id ;
         for (let i = 0; i < gridDimension; i++)
@@ -304,6 +324,7 @@
             }
         }
 
+        // Drop necessary columns
         for (let i = 0; i < cols.length; i++)
         {
             score += Math.floor(currentConnection.length/2);
@@ -313,12 +334,14 @@
         CancelConnection();
     }
 
+    // Handles a completed connection
     function EndConnection()
     {
         if(currentConnection.length > 1)
         {
             score += Math.floor(currentConnection.length * (currentConnection.length/2));
 
+            // Destroy all dots selected
             let cols = [];
             for (let i = 0; i < currentConnection.length; i++)
             {
@@ -326,6 +349,7 @@
                 cols.push(currentConnection[i][0]);
             }
 
+            // Drop necessary columns
             for (let i = 0; i < cols.length; i++)
             {
                 DropColumn(cols[i]);
@@ -334,6 +358,7 @@
         CancelConnection();
     }
 
+    // Cancels the current connection
     function CancelConnection()
     {
         connecting = false;
@@ -350,6 +375,7 @@
         lines.length = 0;
     }
 
+    // Destroys dot and handles points recieved
     function DestroyDot(curDot)
     {
         if (grid[curDot[0]][curDot[1]].image != null)
@@ -357,6 +383,7 @@
             grid[curDot[0]][curDot[1]].image.destroy();
         }
 
+        // Create particle effect
         let pos = grid[curDot[0]][curDot[1]].center;
         let pixelDust = game.scene.scenes[0].add.particles(grid[curDot[0]][curDot[1]].dot.image);
         pixelDust.createEmitter({
@@ -367,7 +394,6 @@
             angle: { min: -85, max: -95 },
             rotate: { min: -180, max: 180 },
             lifespan: { min: 100, max: 500 },
-            //blendMode: 'ADD',
             maxParticles: 20,
             x: pos[0],
             y: pos[1]
@@ -377,26 +403,28 @@
         grid[curDot[0]][curDot[1]].dot = null;
     }
 
+    // Handles dropping columns by telling dot imagess where to move next
     function DropColumn(x)
     {
-        for (let i = gridDimension-1; i >= 0; i--)
+        for (let i = gridDimension-1; i >= 0; i--) // for every dot in column x
         {
-            if (grid[x][i].dot == null)
+            if (grid[x][i].dot == null) // if dot is empty
             {
                 for (let j = i; j >= 0; j--)
                 {
-                    if (j == 0)
+                    if (j == 0) // If top dot
                     {
+                        // create and drop in new dot
                         grid[x][j].dot = GetRandomDot();
                         grid[x][j].image = game.scene.scenes[0].physics.add.image(grid[x][j].center[0], grid[x][j].center[1]-100, grid[x][j].dot.image);
                         fallingCol.push(x);
                         fallingDots.push(grid[x][j].image)
                         fallingTo.push(j);
-                        //game.scene.scenes[0].physics.moveTo(grid[x][j].image, grid[x][j].center[0], grid[x][j].center[1], fallSpeed);
                         grid[x][j].image.depth = -1;
                     }
                     else
                     {
+                        // tell dot where to fall next
                         grid[x][j].dot = grid[x][j-1].dot;
                         grid[x][j].image = grid[x][j-1].image;
                         if (grid[x][j].image != null)
@@ -404,8 +432,6 @@
                             fallingDots.push(grid[x][j].image)
                             fallingCol.push(x);
                             fallingTo.push(j);
-                            //game.scene.scenes[0].physics.moveTo(grid[x][j].image, grid[x][j].center[0], grid[x][j].center[1], fallSpeed);
-                            //grid[x][j].image.setPosition(grid[x][j].center[0], grid[x][j].center[1]);
                         }
                     }
                 }
@@ -415,6 +441,7 @@
 
     ////// Phaser Functions //////
 
+    // Preloads assets
     function preload ()
     {
         this.load.image('blackdot', 'assets/blackdot.png');
@@ -428,13 +455,15 @@
         this.load.image('hex', 'assets/hex.png');
     }
 
+    // Initializes game
     function create()
     {
-        
+        // Set timer
         timerTextObj = this.add.text(15, 15);
         timerTextObj.style.color = '#000';
         timerTextObj.setText("Time: " + time);
 
+        // Set score
         scoreTextObj = this.add.text(150, 15);
         scoreTextObj.style.color = '#000';
         scoreTextObj.setText("Score: " + score);
@@ -444,21 +473,27 @@
 
         this.cameras.main.setBackgroundColor(0xFFFFFF)
         this.cameras.main.ignore(this.physics.world.debugGraphic);
-        SetupHexGrid(this);
-        let scene = this;
 
         this.input.mouse.disableContextMenu();
 
+        let scene = this;
+
+        // Initialize grid
+        SetupHexGrid(this);
+
+        // Handler for pointer click
         this.input.on('pointerdown', function (pointer) {
-            let clickedDot = CheckMousePosition([pointer.x, pointer.y]);
-            if(pointer.rightButtonDown() && currentConnection.length > 0)
+            let clickedDot = CheckMousePosition([pointer.x, pointer.y]); // get potentially clicked dot
+            if(pointer.rightButtonDown() && currentConnection.length > 0) // if right click
             {
                 EndConnection(clickedDot);
             }
-            else if (clickedDot != null)
+            else if (clickedDot != null) // if dot was clicked
             {
                 if (connecting)
                 {
+                    // indexOf() and includes() doesn't work for arrays of [i,j]
+                    // manually check if dot clicked is in current connection 
                     alreadyConnected = false;
                     for (let i = 0; i < currentConnection.length; i++)
                     {
@@ -468,21 +503,23 @@
                             break;
                         }
                     }
-                    if(alreadyConnected)
+
+                    if(alreadyConnected) // if dot clicked is already in connection
                     {
-                        if(currentConnection.length == 1)
+                        if(currentConnection.length == 1) // if clicked first dot, and only dot selected
                             CancelConnection();
+                        // if clicked on first dot at end of connection
                         else if (currentConnection.length > 2 && clickedDot[0] == currentConnection[0][0] && clickedDot[1] == currentConnection[0][1] && Connects(clickedDot))
                             Loop();
                         else
                             StepBackConnection(clickedDot, scene);
                     }
-                    else if (Connects(clickedDot))
+                    else if (Connects(clickedDot)) // if last dot connects to clicked dot
                     {
                         AddConnection(clickedDot, scene);
                     }
                 }
-                else
+                else // if first dot in connection
                 {
                     StartConnection(clickedDot, scene);
                 }
@@ -490,27 +527,36 @@
         }, this);
     }
 
+    // Handles gameplay frame update
     function update()
     {
+        // update timer text
         if (timedMode)
             timerTextObj.setText("Time: " + Math.floor(time - (timerEvent.getProgress() * time)));
 
+        // update score text
         scoreTextObj.setText("Score: " + score);
 
+        // Handle falling dots
+        // TODO: Fix bug that causes falling dot to sometimes stop slightly after intended point
+        // Has to do with image being moved by physics, though setting it back to intended position after it stops doesn't entirely work for some reason
         for (let i = 0; i < fallingDots.length; i++)
         {
+            // Get the indeces of the fallingDots next position
             let fallNext = [grid[fallingCol[i]][fallingTo[i]].center[0], grid[fallingCol[i]][fallingTo[i]].center[1]];
 
-            if(fallingDots[i].y > fallNext[1])
+            //if passed the intended stopping point
+            if(fallingDots[i].y >= fallNext[1])
             {
+                // Stop dot, ensure in right spot, and remove falling info
                 fallingDots[i].body.stop();
                 fallingDots[i].setPosition(fallNext[0], fallNext[1]);
                 fallingDots.splice(i,1);
                 fallingCol.splice(i,1);
                 fallingTo.splice(i,1);
-                i--;
+                i--; // go back so index isn't skipped since size was just changed
             }
-            else if (fallingDots[i].body.speed == 0)
+            else if (fallingDots[i].body.speed == 0) // if falling dot is stopped, set it to fall towards next point
                 game.scene.scenes[0].physics.moveTo(fallingDots[i], fallNext[0], fallNext[1], fallSpeed);
         }
     }
