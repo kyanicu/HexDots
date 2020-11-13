@@ -1,0 +1,521 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Hex Dots</title>
+    <script src="node_modules/phaser/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    ////// Gameplay Info //////
+    
+    // Dot JSONs
+    const blackDot = {
+        id: 0,
+        image: 'blackdot',
+        color: 0x000000,
+    };
+    const orangeDot = {
+        id: 1,
+        image: 'orangedot',
+        color: 0xFF7000,
+    };    
+    const blueDot = {
+        id: 2,
+        image: 'bluedot',
+        color: 0x5070FF,
+    };    
+    const pinkDot = {
+        id: 3,
+        image: 'pinkdot',
+        color: 0xFFC0CB,
+    };    
+    const yellowDot = {
+        id: 4,
+        image: 'yellowdot',
+        color: 0xFFFF00,
+    };
+    const greenDot = {
+        id: 5,
+        image: 'greendot',
+        color: 0x50FF50,
+    };    
+    const purpleDot = {
+        id: 6,
+        image: 'purpledot',
+        color: 0xFF00FF,
+    };    
+    const cyanDot = {
+        id: 7,
+        image: 'cyandot',
+        color: 0x00FFFF,
+    };
+
+    // The usable sots
+    var dots;
+
+    // The dimension of the grid in hexes (height == width)
+    var gridDimension = 6;
+
+    var uiOffsetHeight = 50;
+
+    // The size of the hex png
+    const hexSize = [ 71, 98 ];
+    const dotRadius = 15;
+    
+    // Represents the hex grid, holding the dots
+    var grid = [];
+
+    // Represents the points of the hex centers for image placing;
+    //var gridCenters = [];
+
+    //var gridDotImages
+
+    var connecting = false;
+    var currentConnection = [];
+    var lines = [];
+    var currMarker = null;
+
+    var fallSpeed = 300;
+
+    var fallingDots = []
+    var fallingTo = [];
+    var fallingCol = [];
+    
+    // Phaser game config
+    var config;
+
+    var time = 60;
+    var timedMode = false;
+    var timerTextObj = null;
+    var timerEvent = null;
+
+    var score = 0;
+    var scoreTextObj = null;
+
+    // The Phaser game
+    var game = null;
+
+    // Game initializations functions
+    MainMenu();
+
+    function MainMenu()
+    {
+        alert("Starting New Game");
+        
+        SetGridDimension();
+        SetColorCount();
+        SetTimedMode();
+
+        config = {
+            type: Phaser.AUTO,
+            width: hexSize[0] * gridDimension + hexSize[0]/2,
+            height: ((hexSize[1] - (hexSize[0]/4)) * gridDimension) + uiOffsetHeight,
+            scene: {
+                preload: preload,
+                create: create,
+                update: update,
+            },
+            physics: {
+                default: 'arcade',
+                arcade: { debug: true }
+            }
+        };
+
+        game = new Phaser.Game(config);
+    }
+
+    function SetGridDimension()
+    {
+        gridDimension = prompt("Please enter the grid size (number from 3-15): ");
+        if (gridDimension < 3 || gridDimension > 15 || gridDimension == null || isNaN(gridDimension))
+            SetGridDimension();
+    }
+
+    function SetColorCount()
+    {
+        let colorCount = prompt("Please enter the amount of colors (number from 2-8): ");
+        if (colorCount < 2 || colorCount > 8 || colorCount == null || isNaN(colorCount))
+            SetColorCount();
+        else
+        {
+            dots = [ blackDot, orangeDot, blueDot, pinkDot, yellowDot, greenDot, purpleDot, cyanDot ];
+            dots.sort(() => Math.random() - 0.5);
+            dots.length = colorCount;
+        }
+    }
+
+    function SetTimedMode()
+    {
+        if (confirm("Timed Mode of 60 seconds? (OK for timed mode, Cancel for endless)"))
+            timedMode = true;
+        else
+        {
+            timedMode = false;
+            time = "Inf";
+        }
+    }
+
+    function TimeOver()
+    {
+        alert("Time Over! You're score is: " + score + "\n" + "Press OK to restart");
+        location.reload();
+    }
+    
+    ////// Grid/Hex Initilizialization Functions //////
+
+    function SetupHexGrid(scene)
+    {
+        for (let i = 0; i < gridDimension; i++)
+        { 
+            let column = [];
+            let columnPosX = (i * hexSize[0]) + hexSize[0]/2; 
+            //let columnPos = [];
+
+            for (let j = 0; j < gridDimension; j++)
+            {
+                let newDot = GetRandomDot();
+                let columnPosXOffest = (hexSize[0]/2) * ((j+1) % 2) 
+                let posCenter = [columnPosX + columnPosXOffest, (j * hexSize[1]) + (hexSize[1]/2) - (j * (hexSize[1]/4)) + uiOffsetHeight];
+                let dotImage = scene.physics.add.image(posCenter[0], posCenter[1], newDot.image);
+                dotImage.depth = -1;
+                
+                column.push({
+                    dot: newDot,
+                    center: posCenter,
+                    image: dotImage
+                })
+
+                //columnPos.push([columnPosX + columnPosXOffest, (j * hexSize[1]) + (hexSize[1]/2) - (j * (hexSize[1]/4))]);
+                //column.push(newDot)
+                //scene.add.image(columnPos[j][0], columnPos[j][1], newDot.image);
+                //scene.add.image(columnPos[j][0], columnPos[j][1], 'hex');
+                scene.add.image(column[j].center[0], column[j].center[1], 'hex');
+            }
+            grid.push(column);
+            //gridCenters.push(columnPos)
+        }
+    }
+    
+    function ShuffleGrid()
+    {
+        for (let i = 0; i < gridDimension; i++)
+        { 
+            for (let j = 0; j < gridDimension; j++)
+            {
+                row[i][j] = GetRandomDot();
+            }
+        }
+    }
+
+    function GetRandomDot()
+    {
+        return dots[Math.floor(Math.random() * dots.length)];
+    }
+
+    ////// Gameplay Functions //////
+
+    function Connects(to)
+    {
+        let from = currentConnection[currentConnection.length-1];
+        if ((grid[from[0]][from[1]].dot.id == grid[to[0]][to[1]].dot.id)
+            && (Math.abs(from[1] - to[1]) == 1 && from[0] - to[0] == 0 + (from[1] % 2) // vertically next to each other
+            || Math.abs(from[0] - to[0]) == 1 && from[1] - to[1] == 0 // horizontally next to each other
+            || (Math.abs(from[1] - to[1]) == 1 && from[0] - to[0] == -1 + (from[1] % 2)))) // diagonally to the left of eachother each other
+        {
+            return true;
+        }
+        else
+            return false;
+    }
+
+    function CheckMousePosition(mousePos)
+    {
+        for (let i = 0; i < gridDimension; i++)
+        { 
+            for (let j = 0; j < gridDimension; j++)
+            {
+                if (Math.abs(grid[i][j].center[0] - mousePos[0]) < dotRadius && Math.abs(grid[i][j].center[1] - mousePos[1]) < dotRadius)
+                {   
+                    return [i, j];
+                } 
+            }
+        }
+        return null;
+    }
+
+    function StartConnection(startDot, scene)
+    {
+        connecting = true;
+        currentConnection.push(startDot);
+
+        let center = grid[startDot[0]][startDot[1]].center
+        currMarker = scene.add.circle(center[0], center[1], dotRadius+10, grid[startDot[0]][startDot[1]].dot.color);
+    }
+
+    function AddConnection(nextDot, scene)
+    {
+        currentConnection.push(nextDot);
+
+        let center = grid[nextDot[0]][nextDot[1]].center;
+        let prev = grid[currentConnection[currentConnection.length-2][0]][currentConnection[currentConnection.length-2][1]].center
+
+        currMarker.destroy();
+        currMarker = scene.add.circle(center[0], center[1], dotRadius+10, grid[nextDot[0]][nextDot[1]].dot.color);
+        lines.push(scene.add.line(0, 0, prev[0], prev[1], center[0], center[1], grid[nextDot[0]][nextDot[1]].dot.color).setOrigin(0,0));
+
+    }
+
+    function StepBackConnection(prevDot, scene)
+    {
+        for(let i = currentConnection.length-1; i >= 0 && !(prevDot[0] == currentConnection[i][0] && prevDot[1] == currentConnection[i][1]); i--)
+        {
+            currentConnection.pop();
+            lines[lines.length-1].destroy();
+            lines.pop();
+        }
+        let center = grid[prevDot[0]][prevDot[1]].center;
+        currMarker.destroy();
+        currMarker = scene.add.circle(center[0], center[1], dotRadius+10, grid[prevDot[0]][prevDot[1]].dot.color);
+    }
+
+    function Loop()
+    {
+        score += Math.floor(currentConnection.length * (currentConnection.length/2));
+
+        let cols = [];
+        let id = grid[currentConnection[0][0]][currentConnection[0][1]].dot.id ;
+        for (let i = 0; i < gridDimension; i++)
+        {
+            for (let j = 0; j < gridDimension; j++)
+            {
+                if(grid[i][j].dot.id == id)
+                {
+                    DestroyDot([i, j]);
+                    cols.push(i);
+                }
+            }
+        }
+
+        for (let i = 0; i < cols.length; i++)
+        {
+            score += Math.floor(currentConnection.length/2);
+            DropColumn(cols[i]);
+        }
+
+        CancelConnection();
+    }
+
+    function EndConnection()
+    {
+        if(currentConnection.length > 1)
+        {
+            score += Math.floor(currentConnection.length * (currentConnection.length/2));
+
+            let cols = [];
+            for (let i = 0; i < currentConnection.length; i++)
+            {
+                DestroyDot(currentConnection[i]);
+                cols.push(currentConnection[i][0]);
+            }
+
+            for (let i = 0; i < cols.length; i++)
+            {
+                DropColumn(cols[i]);
+            }
+        }
+        CancelConnection();
+    }
+
+    function CancelConnection()
+    {
+        connecting = false;
+        currentConnection.length = 0;
+
+        for (let i = 0; i < lines.length; i++)
+        {
+            lines[i].destroy();
+        }
+
+        currMarker.destroy();
+        currMarker = null;
+
+        lines.length = 0;
+    }
+
+    function DestroyDot(curDot)
+    {
+        if (grid[curDot[0]][curDot[1]].image != null)
+        {
+            grid[curDot[0]][curDot[1]].image.destroy();
+        }
+
+        let pos = grid[curDot[0]][curDot[1]].center;
+        let pixelDust = game.scene.scenes[0].add.particles(grid[curDot[0]][curDot[1]].dot.image);
+        pixelDust.createEmitter({
+            alpha: { start: .5, end: 0 },
+            scale: { start: 1, end: 4 },
+            tint: { start: grid[curDot[0]][curDot[1]].dot.color, end: grid[curDot[0]][curDot[1]].dot.color },
+            speed: 5,
+            angle: { min: -85, max: -95 },
+            rotate: { min: -180, max: 180 },
+            lifespan: { min: 100, max: 500 },
+            //blendMode: 'ADD',
+            maxParticles: 20,
+            x: pos[0],
+            y: pos[1]
+        });
+
+        grid[curDot[0]][curDot[1]].image = null;
+        grid[curDot[0]][curDot[1]].dot = null;
+    }
+
+    function DropColumn(x)
+    {
+        for (let i = gridDimension-1; i >= 0; i--)
+        {
+            if (grid[x][i].dot == null)
+            {
+                for (let j = i; j >= 0; j--)
+                {
+                    if (j == 0)
+                    {
+                        grid[x][j].dot = GetRandomDot();
+                        grid[x][j].image = game.scene.scenes[0].physics.add.image(grid[x][j].center[0], grid[x][j].center[1]-100, grid[x][j].dot.image);
+                        fallingCol.push(x);
+                        fallingDots.push(grid[x][j].image)
+                        fallingTo.push(j);
+                        //game.scene.scenes[0].physics.moveTo(grid[x][j].image, grid[x][j].center[0], grid[x][j].center[1], fallSpeed);
+                        grid[x][j].image.depth = -1;
+                    }
+                    else
+                    {
+                        grid[x][j].dot = grid[x][j-1].dot;
+                        grid[x][j].image = grid[x][j-1].image;
+                        if (grid[x][j].image != null)
+                        {
+                            fallingDots.push(grid[x][j].image)
+                            fallingCol.push(x);
+                            fallingTo.push(j);
+                            //game.scene.scenes[0].physics.moveTo(grid[x][j].image, grid[x][j].center[0], grid[x][j].center[1], fallSpeed);
+                            //grid[x][j].image.setPosition(grid[x][j].center[0], grid[x][j].center[1]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ////// Phaser Functions //////
+
+    function preload ()
+    {
+        this.load.image('blackdot', 'assets/blackdot.png');
+        this.load.image('orangedot', 'assets/orangedot.png');
+        this.load.image('pinkdot', 'assets/pinkdot.png');
+        this.load.image('bluedot', 'assets/bluedot.png');
+        this.load.image('yellowdot', 'assets/yellowdot.png');
+        this.load.image('greendot', 'assets/greendot.png');
+        this.load.image('purpledot', 'assets/purpledot.png');
+        this.load.image('cyandot', 'assets/cyandot.png');
+        this.load.image('hex', 'assets/hex.png');
+    }
+
+    function create()
+    {
+        
+        timerTextObj = this.add.text(15, 15);
+        timerTextObj.style.color = '#000';
+        timerTextObj.setText("Time: " + time);
+
+        scoreTextObj = this.add.text(150, 15);
+        scoreTextObj.style.color = '#000';
+        scoreTextObj.setText("Score: " + score);
+
+        if(timedMode)
+            timerEvent = this.time.delayedCall(time * 1000, TimeOver, [], this);
+
+        this.cameras.main.setBackgroundColor(0xFFFFFF)
+        this.cameras.main.ignore(this.physics.world.debugGraphic);
+        SetupHexGrid(this);
+        let scene = this;
+
+        this.input.mouse.disableContextMenu();
+
+        this.input.on('pointerdown', function (pointer) {
+            let clickedDot = CheckMousePosition([pointer.x, pointer.y]);
+            if(pointer.rightButtonDown() && currentConnection.length > 0)
+            {
+                EndConnection(clickedDot);
+            }
+            else if (clickedDot != null)
+            {
+                if (connecting)
+                {
+                    alreadyConnected = false;
+                    for (let i = 0; i < currentConnection.length; i++)
+                    {
+                        if (currentConnection[i][0] == clickedDot[0] && currentConnection[i][1] == clickedDot[1])
+                        {
+                            alreadyConnected = true;
+                            break;
+                        }
+                    }
+                    if(alreadyConnected)
+                    {
+                        if(currentConnection.length == 1)
+                            CancelConnection();
+                        else if (currentConnection.length > 2 && clickedDot[0] == currentConnection[0][0] && clickedDot[1] == currentConnection[0][1] && Connects(clickedDot))
+                            Loop();
+                        else
+                            StepBackConnection(clickedDot, scene);
+                    }
+                    else if (Connects(clickedDot))
+                    {
+                        AddConnection(clickedDot, scene);
+                    }
+                }
+                else
+                {
+                    StartConnection(clickedDot, scene);
+                }
+            }
+        }, this);
+    }
+
+    function update()
+    {
+        if (timedMode)
+            timerTextObj.setText("Time: " + Math.floor(time - (timerEvent.getProgress() * time)));
+
+        scoreTextObj.setText("Score: " + score);
+
+        for (let i = 0; i < fallingDots.length; i++)
+        {
+            let fallNext = [grid[fallingCol[i]][fallingTo[i]].center[0], grid[fallingCol[i]][fallingTo[i]].center[1]];
+
+            if(fallingDots[i].y > fallNext[1])
+            {
+                fallingDots[i].body.stop();
+                fallingDots[i].setPosition(fallNext[0], fallNext[1]);
+                fallingDots.splice(i,1);
+                fallingCol.splice(i,1);
+                fallingTo.splice(i,1);
+                i--;
+            }
+            else if (fallingDots[i].body.speed == 0)
+                game.scene.scenes[0].physics.moveTo(fallingDots[i], fallNext[0], fallNext[1], fallSpeed);
+        }
+    }
+  
+</script>
+
+</body>
+</html>
